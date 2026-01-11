@@ -1,6 +1,8 @@
 RobustQuadrature
 ================
 
+[![Arduino Library Checks](https://github.com/wagenadl/RobustQuadrature/actions/workflows/arduino.yml/badge.svg)](https://github.com/wagenadl/RobustQuadrature/actions/workflows/arduino.yml)
+
 An Arduino library for robustly reading quadrature encoders
 
 The RobustQuadrature library can be used to read quadrature encoders
