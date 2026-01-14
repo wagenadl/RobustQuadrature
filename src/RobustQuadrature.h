@@ -21,7 +21,6 @@ namespace RobustQuadrature {
 
   // ISRs for one step per cycle
   template <int pina, int pinb> void isrA1() {
-    check += 1;
     stateB<pina, pinb> = digitalRead(pinb) ? 1 : -1;
     if (stateA<pina, pinb> > 0) {
       counter<pina, pinb> += stateB<pina, pinb>;
@@ -36,6 +35,26 @@ namespace RobustQuadrature {
     stateB<pina, pinb> = 0;
   }
 
+  template <int pina, int pinb> void isrA1x() {
+    // this version uses holdoff
+    stateB<pina, pinb> = digitalRead(pinb) ? 1 : -1;
+    unsigned long t = micros();
+    if (stateA<pina, pinb> == 0) 
+      if (holdoff<pina, pinb>
+          && t - lastA<pina, pinb> >= holdoff<pina, pinb>)
+        stateA<pina, pinb> = putativestateA<pina, pinb>;
+    if (stateA<pina, pinb>) {
+      if (stateA<pina, pinb> > 0) {
+        counter<pina, pinb> += stateB<pina, pinb>;
+        if (callback<pina, pinb>)
+          callback<pina, pinb>(counter<pina, pinb>);
+      }
+      putativestateA<pina, pinb> = -stateA<pina, pinb>;
+      stateA<pina, pinb> = 0;
+    }
+    lastA<pina, pinb> = t;
+  }
+      
   // modified ISR for two steps per cycle
   template <int pina, int pinb> void isrA2() {
     stateB<pina, pinb> = digitalRead(pinb) ? 1 : -1;
@@ -128,17 +147,20 @@ namespace RobustQuadrature {
   //////////////////////////////////////////////////////////////////////
   // Public classes
   
-  template <int pina, int pinb> class One:
-    public Base<pina, pinb> {
+  template <int pina, int pinb> class One: public Base<pina, pinb> {
   public:
     One() {
       attachInterrupt(digitalPinToInterrupt(pina), isrA1<pina, pinb>, CHANGE);
       attachInterrupt(digitalPinToInterrupt(pinb), isrB1<pina, pinb>, CHANGE);
     }
+    void setHoldoff(unsigned long holdoff_us) {
+      holdoff<pina, pinb> = holdoff_us;
+      detachInterrupt(digitalPinToInterrupt(pina));
+      attachInterrupt(digitalPinToInterrupt(pina), isrA1x<pina, pinb>, CHANGE);
+    }
   };
 
-  template <int pina, int pinb> class Two:
-    public Base<pina, pinb> {
+  template <int pina, int pinb> class Two: public Base<pina, pinb> {
   public:
     Two() {
       holdoff<pina, pinb> = 1000;
@@ -147,8 +169,7 @@ namespace RobustQuadrature {
     }
   };
 
-  template <int pina, int pinb> class Four:
-    public Base<pina, pinb> {
+  template <int pina, int pinb> class Four: public Base<pina, pinb> {
   public:
     Four() {
       holdoff<pina, pinb> = 1000;
